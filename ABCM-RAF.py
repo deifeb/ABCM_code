@@ -39,7 +39,7 @@ def load_pickle(file_name):
 def compute_features(time_series):
     features = {}
 
-    # F1: 平均需求间隔 (ADI)
+    # F1: Average Demand Interval (ADI)
     demand_indices = np.where(time_series > 0)[0]
     if len(demand_indices) > 1:
         inter_demand_intervals = np.diff(demand_indices)
@@ -47,26 +47,26 @@ def compute_features(time_series):
     else:
         features['F1'] = np.nan
 
-    # F2: 方差系数平方 (CV^2)
+    # F2: Square of Coefficient of Variation (CV^2)
     non_zero_demand = time_series[time_series > 0]
     if len(non_zero_demand) > 0:
         features['F2'] = variation(non_zero_demand) ** 2
     else:
         features['F2'] = np.nan
 
-    # F3: 近似熵
+    # F3: Approximate Entropy
     features['F3'] = ant.app_entropy(time_series, order=2)
 
-    # F4: 零值百分比
+    # F4: Percentage of Zero Values
     features['F4'] = np.sum(time_series == 0) / len(time_series)
 
-    # F5: 超出 [mean - std, mean + std] 范围的值的百分比
+    # F5: Percentage of Values Outside [mean - std, mean + std] Range
     mean_y = np.mean(time_series)
     std_y = np.std(time_series)
     features['F5'] = np.sum((time_series < mean_y - std_y) | (time_series > mean_y + std_y)) / len(time_series)
 
-    # F6: 线性最小二乘回归系数
-    chunk_size = 12  # 对于月度数据
+    # F6: Linear Least Squares Regression Coefficient
+    chunk_size = 12  # For monthly data
     chunks = [time_series[i:i + chunk_size] for i in range(0, len(time_series), chunk_size)]
     variances = [np.var(chunk) for chunk in chunks if len(chunk) == chunk_size]
     if len(variances) > 1:
@@ -77,17 +77,17 @@ def compute_features(time_series):
     else:
         features['F6'] = np.nan
 
-    # F7: 连续变化的平均绝对值
+    # F7: Average Absolute Value of Consecutive Changes
     consecutive_changes = np.diff(time_series)
     features['F7'] = np.mean(np.abs(consecutive_changes))
 
-    # F8: 最后一个块的平方和占整个序列的比例
+    # F8: Ratio of Last Chunk's Sum of Squares to Total Series
     k = 4
     chunk_length = len(time_series) // k
     last_chunk = time_series[-chunk_length:]
     features['F8'] = np.sum(last_chunk ** 2) / np.sum(time_series ** 2)
 
-    # F9: 序列末尾连续零值的百分比
+    # F9: Percentage of Consecutive Zeros at the End
     consecutive_zero_at_end = 0
     for value in reversed(time_series):
         if value == 0:
@@ -98,7 +98,7 @@ def compute_features(time_series):
 
     return features
 
-class QLearningAgent:
+class train_model:
     def __init__(self, categories, actions, error, max_iterations=5000, alpha=0.05, gamma=0.8, epsilon=0.9):
         self.categories = categories
         self.actions = actions
@@ -113,7 +113,7 @@ class QLearningAgent:
     def _initialize_r_value(self):
         error = self.error.T
         mean_values = error.mean()
-        # 将均值插入到DataFrame的最后一行
+        # Insert mean values into the last row of DataFrame
         error.loc['mean'] = mean_values
         error_mean = error.loc['mean']
         error = error.drop('mean')
@@ -131,7 +131,7 @@ class QLearningAgent:
         valid_indices = self.r_value.columns[self.r_value.loc[action] != -1].tolist()
         return random.choice(valid_indices) if valid_indices else None
 
-    def q_learning(self):
+    def make_know(self):
         for iteration in range(self.max_iterations):
             current_state = random.choice(self.categories)
             while True:
@@ -161,10 +161,10 @@ class QLearningAgent:
 
 
 def format_trans(data):
-    # 转化训练数据和测试数据的格式
+    # Transform training and test data format
     start_date = '1996-01-01'
-    date_range = pd.date_range(start=start_date, periods=84, freq='M')  # 从开始日期生成84个月的时间序列
-    data.insert(0, 'ds', date_range)  # 在第一列插入时间序列
+    date_range = pd.date_range(start=start_date, periods=84, freq='M')  # Generate time series for 84 months from start date
+    data.insert(0, 'ds', date_range)  # Insert time series in the first column
     Qtrain_test_data = []
     Qtrain_train_data = []
     for i, col in enumerate(data.columns):
@@ -172,18 +172,18 @@ def format_trans(data):
             Qtrain_test_series = {
                 "start": data['ds'].iloc[0],
                 "target": data[col].values.tolist(),
-                "feat_static_cat": [i - 1],  # 添加静态特征，这里假设静态特征为每个序列的索引 i
+                "feat_static_cat": [i - 1],  # Add static features, assuming static feature is the index i
             }
             Qtrain_train_series = {
                 "start": data['ds'].iloc[0],
-                "target": data[col].iloc[:78].values.tolist(),  # 仅取前78行作为target
+                "target": data[col].iloc[:78].values.tolist(),  # Only take first 78 rows as target
                 "feat_static_cat": [i - 1],
             }
             Qtrain_test_data.append(Qtrain_test_series)
             Qtrain_train_data.append(Qtrain_train_series)
-    train_data = ListDataset(Qtrain_train_data, freq="M")  # 这里假设数据是每月一条记录，可以根据实际情况调整频率
+    train_data = ListDataset(Qtrain_train_data, freq="M")  # Assuming monthly data, adjust frequency as needed
     test_data = ListDataset(Qtrain_test_data, freq="M")
-    # 生成tss
+    # Generate tss
     tss = []
     for col in data.columns:
         df = pd.DataFrame(
@@ -237,18 +237,18 @@ def deeprenewal_forecast(train_data, test_data, tss, prediction_length, learning
                 trainer=trainer,
             )
             predictor = estimator.train(train_data, test_data)
-            break  # 如果成功训练模型，跳出循环
+            break  # If model training successful, break the loop
         except Exception as e:
-            print(f"遇到错误: {e}")
-            print("重新训练模型...")
-            continue  # 继续下一次循环重新训练模型
+            print(f"Encountered error: {e}")
+            print("Retraining model...")
+            continue  # Continue to next iteration to retrain model
     if name == 'DeepRenewal Flat':
         print('deep_renewal_flat_forecast')
         deep_renewal_flat_forecast_it, ts_it = make_evaluation_predictions(
             dataset=test_data, predictor=predictor, num_samples=100
         )
         deep_renewal_flat_forecast = [prediction for prediction in deep_renewal_flat_forecast_it]
-        print('评估')
+        print('Evaluating')
         deep_renewal_flat_agg_metrics, deep_renewal_flat_item_metrics = evaluator(
             iter(tss), iter(deep_renewal_flat_forecast), num_series=len(test_data)
         )
@@ -260,7 +260,7 @@ def deeprenewal_forecast(train_data, test_data, tss, prediction_length, learning
             dataset=test_data, predictor=predictor, num_samples=100
         )
         deep_renewal_exact_forecasts = [prediction for prediction in deep_renewal_exact_forecast_it]
-        print('评估')
+        print('Evaluating')
         deep_renewal_exact_agg_metrics, deep_renewal_exact_item_metrics = evaluator(
             iter(tss), iter(deep_renewal_exact_forecasts), num_series=len(test_data)
         )
@@ -272,7 +272,7 @@ def deeprenewal_forecast(train_data, test_data, tss, prediction_length, learning
             dataset=test_data, predictor=predictor, num_samples=100
         )
         deep_renewal_hybrid_forecasts = [prediction for prediction in deep_renewal_hybrid_forecast_it]
-        print('评估')
+        print('Evaluating')
         deep_renewal_hybrid_agg_metrics, deep_renewal_hybrid_item_metrics = evaluator(
             iter(tss), iter(deep_renewal_hybrid_forecasts), num_series=len(test_data)
         )
@@ -383,12 +383,12 @@ def calculate_model_acc(action, train_data, test_data, tss):
                                               10, 'gru', 128, 0.1, 2, evaluator)
             return metric
         else:
-            print('模型不在已知范围内')
+            print('Model not in known range')
 
 
 if __name__ == '__main__':
     df = pd.read_excel(r"D:\gluon_ts\新聚类方法\RAF_forecast2.xlsx")
-    # 特征提取agent1
+    # Feature extraction agent1
     np.random.seed(42)
     tf.random.set_seed(42)
     num_samples = 5000
@@ -398,7 +398,7 @@ if __name__ == '__main__':
     input_data = data.T
     input_shape = (sequence_length,)
     print(input_data.shape[1])
-    encoding_dim = 12   # 可自定义
+    encoding_dim = 12   # Customizable
     input_layer = tf.keras.layers.Input(shape=input_shape)
     encoded = tf.keras.layers.Dense(encoding_dim, activation='relu')(input_layer)
     decoded = tf.keras.layers.Dense(sequence_length, activation='sigmoid')(encoded)
@@ -413,17 +413,17 @@ if __name__ == '__main__':
     x = pd.concat([feature_9, feature_autoencoder], axis=1)
     x.to_excel(r'E:\论文论文\迁移学习\程序\特征提取\0.96F9_encoder_feature_xin_2.xlsx')
     x = pd.read_excel(r'E:\论文论文\迁移学习\程序\特征提取\0.96F9_encoder_feature.xlsx')
-    # 分类聚类agent2
+    # Classification clustering agent2
     X = x.iloc[:4000, :]
     Y = x.iloc[4000:, :]
     ks = KScorer()
     labels, centroids, _ = ks.fit_predict(X, retall=True)
     save_to_pickle(ks, r'E:\论文论文\迁移学习\程序\特征提取\0.96F9_encoder_ks.pkl')
-    ks.show()  # 聚类点以及相应的得分高亮显示。这些带标签的点对应于所有指标的平均分数中的局部最大值，因此是选择最佳聚类数的最佳选项
+    ks.show()  # Display clustering points and corresponding highlighted scores. These labeled points correspond to local maxima in the average scores of all metrics, making them the best options for selecting the optimal number of clusters
     K = ks.optimal_
     kk = ks.ranked_
     kk.to_excel(r'E:\论文论文\迁移学习\程序\特征提取\0.96F9_encoder.xlsx')
-    print(f'最佳聚类数为：{K}')
+    print(f'Optimal number of clusters: {K}')
     # kk.to_excel(r'E:\论文论文\迁移学习\程序\特征提取\0.96F9_encoder_画图用.xlsx')
     label_count = Counter(labels)
     for label, count in label_count.items():
@@ -442,15 +442,15 @@ if __name__ == '__main__':
     labels['category'] = pd.read_excel(r"E:\论文论文\迁移学习\程序\特征提取\0.96F9_encoder_x.xlsx", index_col=0)
     model_list = ['SBJ', 'ETS', 'DeepAR', 'DeepRenewal Flat', 'DeepRenewal Exact', "ARIMA",
                   'DeepRenewal Hybrid']
-    # 按照category列进行分组，并将各个category的value放入不同位置的列表中
-    # 训练和评估，为agent3输出特征-模型对，即训练数据
+    # Group by category column and put values of each category into different position lists
+    # Train and evaluate, output feature-model pairs for agent3, i.e., training data
     grouped_data = labels.groupby('category')['data_names'].apply(list).reset_index()
     epochs = 10
     errors_cate = []
-    # 训练和评估模型
+    # Train and evaluate models
     for epoch in range(epochs):
         for cate in range(grouped_data.shape[0]):
-            print(f'~~~~~~~~~~~~~~~~~~~~~~~~~~~~~第{cate}类~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
+            print(f'~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Category {cate}~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
             data_a = a_data[grouped_data['data_names'][cate]]
             train_data_a, test_data_a, tss_a = format_trans(data_a)
             error = []
@@ -468,7 +468,7 @@ if __name__ == '__main__':
         for j in range(epochs):
             index = i + j * grouped_data.shape[0]
             avg_df = avg_df.add(errors_cate[index], fill_value=0)
-        avg_df = avg_df / epochs  # 求均值
+        avg_df = avg_df / epochs  # Calculate average
         new_error.append(avg_df)
         aa_data = avg_df[error_name]
         row_means = aa_data.mean(axis=1)
@@ -476,7 +476,7 @@ if __name__ == '__main__':
     av_error = pd.DataFrame(av_error)
     row_index = ['state0', 'state1', 'state2', 'state3', 'state4', 'state5', 'state6']
     av_error = av_error.rename(index=dict(zip(av_error.index, row_index)))
-    # # # 生成Q表
+    # # # Generate Q table
     actions = {
         1: "SBJ",
         2: "ARIMA",
@@ -489,14 +489,14 @@ if __name__ == '__main__':
     av_error.to_excel(r'D:\gluon_ts\新聚类方法\av_error_xin2.xlsx')
     # av_error = pd.read_excel(r'D:\gluon_ts\新聚类方法\av_error_xin2.xlsx', index_col=0)
     # av_error = load_pickle(r"D:\gluon_ts\新聚类方法\av_error.pkl")
-    agent = QLearningAgent(row_index, actions, av_error)
-    q_tables = agent.q_learning()
-    q_tables.to_excel(r'D:\gluon_ts\新聚类方法\q_tables_xin2.xlsx')
+    agent = train_model(row_index, actions, av_error)
+    table_value = agent.make_know()
+    table_value.to_excel(r'D:\gluon_ts\新聚类方法\table_value_xin2.xlsx')
     labels_b = pd.DataFrame()
     data_names = b_data.columns.tolist()[1:]
     labels_b['data_names'] = data_names
     labels_b['category'] = pd.read_excel(r"E:\论文论文\迁移学习\程序\特征提取\0.96F9_encoder_y.xlsx", index_col=0)
-    # 按照category列进行分组，并将各个category的value放入不同位置的列表中
+    # Group by category column and put values of each category into different position lists
     grouped_data_test = labels_b.groupby('category')['data_names'].apply(list).reset_index()
 
     grouped_num = []
@@ -504,14 +504,14 @@ if __name__ == '__main__':
         grouped_num.append(len(grouped_data_test['data_names'][i]))
     grouped = np.sum(grouped_num)
     if grouped != 1000:
-        print('老铁有毛病了，快修改！')
+        print('Something went wrong, please fix!')
     else:
         metrics_b = []
         for test_cate in range(grouped_data_test.shape[0]):
             data_b = b_data[grouped_data_test['data_names'][test_cate]]
             train_data_b, test_data_b, tss_b = format_trans(data_b)
-            model_select = q_tables[row_index[test_cate]].idxmax()
+            model_select = table_value[row_index[test_cate]].idxmax()
             metric_b = calculate_model_acc(model_select, train_data_b, test_data_b, tss_b)
             metrics_b.append(metric_b)
         metrics_b = pd.DataFrame(metrics_b)
-        metrics_b.to_excel(r"新聚类预测结果.xlsx")
+        metrics_b.to_excel(r"New clustering prediction results.xlsx")
