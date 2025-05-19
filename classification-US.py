@@ -22,7 +22,7 @@ def load_from_pickle(filename):
 def compute_features(time_series):
     features = {}
 
-    # F1: 平均需求间隔 (ADI)
+    # F1: Average Demand Interval (ADI)
     demand_indices = np.where(time_series > 0)[0]
     if len(demand_indices) > 1:
         inter_demand_intervals = np.diff(demand_indices)
@@ -30,26 +30,26 @@ def compute_features(time_series):
     else:
         features['F1'] = np.nan
 
-    # F2: 方差系数平方 (CV^2)
+    # F2: Square of Coefficient of Variation (CV^2)
     non_zero_demand = time_series[time_series > 0]
     if len(non_zero_demand) > 0:
         features['F2'] = variation(non_zero_demand) ** 2
     else:
         features['F2'] = np.nan
 
-    # F3: 近似熵
+    # F3: Approximate Entropy
     features['F3'] = ant.app_entropy(time_series, order=2)
 
-    # F4: 零值百分比
+    # F4: Percentage of Zero Values
     features['F4'] = np.sum(time_series == 0) / len(time_series)
 
-    # F5: 超出 [mean - std, mean + std] 范围的值的百分比
+    # F5: Percentage of Values Outside [mean - std, mean + std] Range
     mean_y = np.mean(time_series)
     std_y = np.std(time_series)
     features['F5'] = np.sum((time_series < mean_y - std_y) | (time_series > mean_y + std_y)) / len(time_series)
 
-    # F6: 线性最小二乘回归系数
-    chunk_size = 12  # 对于月度数据
+    # F6: Linear Least Squares Regression Coefficient
+    chunk_size = 12  # For monthly data
     chunks = [time_series[i:i + chunk_size] for i in range(0, len(time_series), chunk_size)]
     variances = [np.var(chunk) for chunk in chunks if len(chunk) == chunk_size]
     if len(variances) > 1:
@@ -60,7 +60,7 @@ def compute_features(time_series):
     else:
         features['F6'] = np.nan
 
-    # F7: 连续变化的平均绝对值
+    # F7: Average Absolute Value of Consecutive Changes
     consecutive_changes = np.diff(time_series)
     features['F7'] = np.mean(np.abs(consecutive_changes))
 
