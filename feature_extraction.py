@@ -93,13 +93,11 @@ def compute_features(time_series):
 # 设置随机种子以确保可重复性
 np.random.seed(42)
 tf.random.set_seed(42)
-# # 生成虚拟数据
 num_samples = 5000
 sequence_length = 84
 data = pd.read_excel(r'E:\简单间歇性需求\原始RAF_forecast.xlsx')
 data.set_index(data.columns[0], inplace=True)
 input_data = data.T
-# 构建自动编码器
 input_shape = (sequence_length,)
 print(input_data.shape[1])
 encoding_dim = 12
@@ -107,17 +105,12 @@ input_layer = tf.keras.layers.Input(shape=input_shape)
 encoded = tf.keras.layers.Dense(encoding_dim, activation='relu')(input_layer)
 decoded = tf.keras.layers.Dense(sequence_length, activation='sigmoid')(encoded)
 autoencoder = tf.keras.models.Model(input_layer, decoded)
-# 编译模型
 autoencoder.compile(optimizer='adam', loss='mse')
-# 训练自动编码器
 autoencoder.fit(input_data, input_data, epochs=50, batch_size=16)
-# 提取特征
 encoder = tf.keras.models.Model(input_layer, encoded)
 encoded_data = encoder.predict(input_data)
 feature_autoencoder = pd.DataFrame(encoded_data, columns=[f'F{i}' for i in range(10, encoding_dim + 10)])
-# 保存模型结构图为文件
 # plot_model(autoencoder, to_file='autoencoder_model.png', show_shapes=True, show_layer_names=True)
-# # 手动提取9个特征
 feature_9 = pd.DataFrame([compute_features(data[col]) for col in data.columns])
 # x = pd.concat([feature_9, feature_autoencoder], axis=1)
 # x.to_excel(r'E:\论文论文\迁移学习\程序\特征提取\0.90F9_encoder_feature_xin_2.xlsx')
@@ -125,7 +118,6 @@ x = pd.read_excel(r'E:\论文论文\迁移学习\程序\特征提取\0.96F9_enco
 # x = input_data
 X = x.iloc[:4000, :]
 Y = x.iloc[4000:, :]
-# 如果我是以4000条进行聚类，结果会是怎样的
 ks = KScorer()
 labels, centroids, _ = ks.fit_predict(X, retall=True)
 # save_to_pickle(ks, r'E:\论文论文\迁移学习\程序\特征提取\0.96F9_encoder_ks.pkl')
